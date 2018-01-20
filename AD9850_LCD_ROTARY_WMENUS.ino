@@ -14,6 +14,7 @@ All changes and developments by Paolo Cravero IK1ZYW
 #include <EEPROM.h>
 
 //Setup some items
+#define SYNC_SIG 12 // Pin 12 - sync signal during sweep
 #define W_CLK 9   // Pin 9 - connect to AD9850 module word load clock pin (CLK)
 #define FQ_UD 8   // Pin 8 - connect to freq update pin (FQ)
 #define DATA 7   // Pin 7 - connect to serial data load pin (DATA)
@@ -64,10 +65,13 @@ void setup() {
   PCICR |= (1 << PCIE2);
   PCMSK2 |= (1 << PCINT18) | (1 << PCINT19);
   sei();
+  pinMode(SYNC_SIG, OUTPUT);
   pinMode(FQ_UD, OUTPUT);
   pinMode(W_CLK, OUTPUT);
   pinMode(DATA, OUTPUT);
   pinMode(RESET, OUTPUT); 
+  
+  digitalWrite(SYNC_SIG,LOW); 
   pulseHigh(RESET);
   pulseHigh(W_CLK);
   pulseHigh(FQ_UD);  // this pulse enables serial mode on the AD9850 - Datasheet page 12.
@@ -198,16 +202,19 @@ void doScan() {
   if (rx >= scanhigh){rx=scanlow;}; 
   
   rx = scanlow;
+  pulseHigh(SYNC_SIG);
   do {
     showFreq();
     sendFrequency(rx);
     rx = rx + increment;
-    if (rx >= scanhigh){rx=scanlow;}; // loop back to beginning
-
+    
     menupos = analogRead(1); // pin A1  
     delay(menupos); // set scanning speed according to menu pot position
     
     buttonstate = digitalRead(A0); // check for end-of-scan command
+
+    if (rx >= scanhigh){rx=scanlow; pulseHigh(SYNC_SIG);}; // loop back to beginning
+    
   } while (buttonstate == HIGH);
   
   rx2 = rx;
